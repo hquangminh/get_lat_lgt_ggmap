@@ -1,53 +1,42 @@
-import React, { useState } from 'react'
+import React from 'react'
+import { BrowserRouter as Router, Route, Routes, Link } from 'react-router-dom'
+import GoogleMapsExtractor from './components/GoogleMapsExtractor'
+import ImageUploader from './components/ImageUploader'
+import 'bootstrap/dist/css/bootstrap.min.css'
 import './App.css'
 
-const extractGoogleMapsInfo = (url) => {
-  // Improved regex patterns for extracting latitude, longitude, and place id
-  const latLngPattern = /@(-?\d+\.\d+),(-?\d+\.\d+)/
-  const placeIdPattern = /!1s0x[^:]+:0x([^!]+)/
-
-  // Find latitude and longitude
-  const latLngMatch = url.match(latLngPattern)
-  const latitude = latLngMatch ? latLngMatch[1] : 'Not found'
-  const longitude = latLngMatch ? latLngMatch[2] : 'Not found'
-
-  // Find place id
-  const placeIdMatch = url.match(placeIdPattern)
-  const placeId = placeIdMatch ? decodeURIComponent(placeIdMatch[1]) : 'Not found'
-
-  return { latitude, longitude, placeId }
-}
-
-function App() {
-  const [url, setUrl] = useState('')
-  const [result, setResult] = useState({ latitude: '', longitude: '', placeId: '' })
-
-  const handleSubmit = (event) => {
-    event.preventDefault()
-    const extractedInfo = extractGoogleMapsInfo(url)
-    setResult(extractedInfo)
-  }
-
+const App = () => {
   return (
-    <div className='App'>
-      <h1>Google Maps Info Extractor</h1>
-      <form onSubmit={handleSubmit}>
-        <input type='text' placeholder='Enter Google Maps URL' value={url} onChange={(e) => setUrl(e.target.value)} />
-        <button type='submit'>Extract Info</button>
-      </form>
-      <div className='result'>
-        <h2>Extracted Information</h2>
-        <p>
-          <strong>Latitude:</strong> {result.latitude}
-        </p>
-        <p>
-          <strong>Longitude:</strong> {result.longitude}
-        </p>
-        <p>
-          <strong>Place ID:</strong> {result.placeId}
-        </p>
+    <Router>
+      <div>
+        <nav className='navbar navbar-expand-lg navbar-light bg-light'>
+          <a className='navbar-brand' href='#'>
+            Squoosh Clone
+          </a>
+          <div className='collapse navbar-collapse'>
+            <ul className='navbar-nav mr-auto'>
+              <li className='nav-item'>
+                <Link className='nav-link' to='/maps'>
+                  Google Maps Info Extractor
+                </Link>
+              </li>
+              <li className='nav-item'>
+                <Link className='nav-link' to='/compressor'>
+                  Image Compressor
+                </Link>
+              </li>
+            </ul>
+          </div>
+        </nav>
+        <main role='main' className='container mt-4'>
+          <Routes>
+            <Route path='/maps' element={<GoogleMapsExtractor />} />
+            <Route path='/compressor' element={<ImageUploader />} />
+            <Route path='/' element={<GoogleMapsExtractor />} />
+          </Routes>
+        </main>
       </div>
-    </div>
+    </Router>
   )
 }
 

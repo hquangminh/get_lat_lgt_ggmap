@@ -4,8 +4,8 @@ import CompareImage from 'react-compare-image'
 import { saveAs } from 'file-saver'
 import JSZip from 'jszip'
 import 'bootstrap/dist/css/bootstrap.min.css'
-import Spinner from 'react-bootstrap/Spinner'
 import ExifReader from 'exifreader'
+import { Spinner } from 'react-bootstrap'
 
 const debounce = (func, delay) => {
   let debounceTimer
@@ -18,9 +18,8 @@ const debounce = (func, delay) => {
 const ImageUploader = () => {
   const [files, setFiles] = useState([])
   const [images, setImages] = useState([])
-  const [resizeWidth, setResizeWidth] = useState(1024)
-  const [resizeHeight, setResizeHeight] = useState(768)
-  const [globalQuality, setGlobalQuality] = useState(0.5)
+  const [resizeWidth, setResizeWidth] = useState(null)
+  const [resizeHeight, setResizeHeight] = useState(null)
   const [imageFormat, setImageFormat] = useState('webp')
   const [metadata, setMetadata] = useState({})
   const [rename, setRename] = useState({})
@@ -40,7 +39,7 @@ const ImageUploader = () => {
           name: file.name,
           size: file.size,
           compressedSize: 0,
-          quality: globalQuality, // Default to global quality
+          quality: 1, // Default to max quality
           metadata: imgMetadata,
         }
       })
@@ -48,7 +47,7 @@ const ImageUploader = () => {
 
     setImages(imagePreviews)
     setMetadata(imagePreviews.reduce((acc, img) => ({ ...acc, [img.name]: img.metadata }), {}))
-    uploadedFiles.forEach((file) => processImage(file, globalQuality, resizeWidth, resizeHeight))
+    uploadedFiles.forEach((file) => processImage(file, 1, resizeWidth, resizeHeight))
   }
 
   const getMetadata = async (file) => {
@@ -67,8 +66,8 @@ const ImageUploader = () => {
 
   const processImage = async (file, quality, width, height) => {
     const options = {
-      maxSizeMB: 1,
-      maxWidthOrHeight: Math.max(width, height),
+      maxSizeMB: quality >= 0.99 ? Infinity : 0.01, // If quality is max, don't limit size
+      maxWidthOrHeight: Math.min(width || Infinity, height || Infinity, 10000), // Use a large dimension for better quality
       initialQuality: quality,
       useWebWorker: true,
     }
@@ -76,7 +75,7 @@ const ImageUploader = () => {
     try {
       setLoading((prevLoading) => ({ ...prevLoading, [file.name]: true }))
       const compressedFile = await imageCompression(file, options)
-      const resizedFile = await resizeImage(compressedFile, width, height)
+      const resizedFile = await resizeImage(compressedFile, width, height, quality)
       setLoading((prevLoading) => ({ ...prevLoading, [file.name]: false }))
       setImages((prevImages) =>
         prevImages.map((img) =>
@@ -95,19 +94,23 @@ const ImageUploader = () => {
     }
   }
 
-  const resizeImage = (file, width, height) => {
+  const resizeImage = (file, width, height, quality) => {
     return new Promise((resolve) => {
       const img = new Image()
       img.src = URL.createObjectURL(file)
       img.onload = () => {
         const canvas = document.createElement('canvas')
-        canvas.width = width
-        canvas.height = height
+        canvas.width = width || img.width
+        canvas.height = height || img.height
         const ctx = canvas.getContext('2d')
-        ctx.drawImage(img, 0, 0, width, height)
-        canvas.toBlob((blob) => {
-          resolve(new File([blob], file.name, { type: file.type }))
-        }, file.type)
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+        canvas.toBlob(
+          (blob) => {
+            resolve(new File([blob], file.name, { type: file.type }))
+          },
+          file.type,
+          quality
+        )
       }
     })
   }
@@ -120,22 +123,12 @@ const ImageUploader = () => {
     if (files.length > 0) {
       files.forEach((file) => {
         const individualQuality = individualQualities[file.name]
-        if (individualQuality === undefined) {
-          debouncedProcessImage(file, globalQuality, resizeWidth, resizeHeight)
+        if (individualQuality !== undefined) {
+          debouncedProcessImage(file, individualQuality, resizeWidth, resizeHeight)
         }
       })
     }
-  }, [globalQuality, resizeWidth, resizeHeight, imageFormat])
-
-  const handleGlobalQualityChange = (quality) => {
-    setGlobalQuality(quality)
-    files.forEach((file) => {
-      const individualQuality = individualQualities[file.name]
-      if (individualQuality === undefined) {
-        processImage(file, quality, resizeWidth, resizeHeight)
-      }
-    })
-  }
+  }, [resizeWidth, resizeHeight, imageFormat])
 
   const handleIndividualQualityChange = (name, quality) => {
     setIndividualQualities((prevQualities) => ({
@@ -144,6 +137,7 @@ const ImageUploader = () => {
     }))
     const file = files.find((file) => file.name === name)
     if (file) {
+      setLoading((prevLoading) => ({ ...prevLoading, [file.name]: true }))
       debouncedProcessImage(file, quality, resizeWidth, resizeHeight)
     }
   }
@@ -167,12 +161,37 @@ const ImageUploader = () => {
     }))
   }
 
+  const updateCompressedSize = async (img) => {
+    const file = files.find((file) => file.name === img.name)
+    if (file) {
+      const quality = individualQualities[img.name] || 1
+      const options = {
+        maxSizeMB: quality >= 0.99 ? Infinity : 0.01,
+        initialQuality: quality,
+        useWebWorker: true,
+      }
+      const compressedFile = await imageCompression(file, options)
+      const resizedFile = await resizeImage(compressedFile, resizeWidth, resizeHeight, quality)
+      setImages((prevImages) =>
+        prevImages.map((i) =>
+          i.name === img.name
+            ? {
+                ...i,
+                compressedSize: resizedFile.size,
+              }
+            : i
+        )
+      )
+    }
+  }
+
   const downloadImage = async (img) => {
+    await updateCompressedSize(img)
     const canvas = document.createElement('canvas')
     const ctx = canvas.getContext('2d')
     const image = new Image()
     image.src = img.processed || img.original
-    const quality = individualQualities[img.name] || globalQuality
+    const quality = individualQualities[img.name] || 1
     image.onload = () => {
       canvas.width = image.width
       canvas.height = image.height
@@ -181,6 +200,16 @@ const ImageUploader = () => {
         (blob) => {
           const filename = rename[img.name] ? `${rename[img.name]}.${imageFormat}` : img.name.replace(/\.\w+$/, `.${imageFormat}`)
           saveAs(blob, filename)
+          setImages((prevImages) =>
+            prevImages.map((i) =>
+              i.name === img.name
+                ? {
+                    ...i,
+                    compressedSize: blob.size,
+                  }
+                : i
+            )
+          )
         },
         `image/${imageFormat}`,
         quality
@@ -197,11 +226,11 @@ const ImageUploader = () => {
           const ctx = canvas.getContext('2d')
           const image = new Image()
           image.src = img.processed || img.original
-          const quality = individualQualities[img.name] || globalQuality
+          const quality = individualQualities[img.name] || 1
           image.onload = () => {
-            canvas.width = resizeWidth
-            canvas.height = resizeHeight
-            ctx.drawImage(image, 0, 0, resizeWidth, resizeHeight)
+            canvas.width = resizeWidth || image.width
+            canvas.height = resizeHeight || image.height
+            ctx.drawImage(image, 0, 0, canvas.width, canvas.height)
             canvas.toBlob(
               (blob) => {
                 const filename = rename[img.name] ? `${rename[img.name]}.${imageFormat}` : img.name.replace(/\.\w+$/, `.${imageFormat}`)
@@ -231,27 +260,23 @@ const ImageUploader = () => {
               <h5>Original: {img.name}</h5>
               {img.processed && <h5>Processed: {rename[img.name] || img.name}</h5>}
               <div className='image-wrapper' style={{ width: '100%', height: '300px', position: 'relative', textAlign: 'center' }}>
-                {loading[img.name] && (
-                  <Spinner
-                    animation='border'
-                    role='status'
-                    style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }}>
-                    <span className='visually-hidden'>Loading...</span>
-                  </Spinner>
-                )}
-                {!loading[img.name] && (
-                  <CompareImage
-                    leftImage={img.original}
-                    rightImage={img.processed || img.original}
-                    sliderLineWidth={3}
-                    sliderLineColor='#FF0000'
-                    containerStyle={{ width: '100%', height: '100%' }}
-                  />
-                )}
+                <CompareImage
+                  leftImage={img.original}
+                  rightImage={img.processed || img.original}
+                  sliderLineWidth={3}
+                  sliderLineColor='#FF0000'
+                  containerStyle={{ width: '100%', height: '100%' }}
+                />
               </div>
               <div className='mt-2'>
                 <p>Original Size: {(img.size / 1024).toFixed(2)} KB</p>
-                <p>Compressed Size: {(img.compressedSize / 1024).toFixed(2)} KB</p>
+                {loading[img.name] ? (
+                  <p>
+                    Compressed Size: <Spinner animation='border' size='sm' />
+                  </p>
+                ) : (
+                  <p>Compressed Size: {(img.compressedSize / 1024).toFixed(2)} KB</p>
+                )}
               </div>
               <div className='mt-2'>
                 <label>Rename:</label>
@@ -273,14 +298,24 @@ const ImageUploader = () => {
                 ))}
               </div>
               <div className='mt-2'>
-                <label>Quality: {Math.round((individualQualities[img.name] || globalQuality) * 100)}%</label>
+                <label>Quality: {Math.round((individualQualities[img.name] || 1) * 100)}%</label>
                 <input
                   type='range'
                   className='form-control-range'
+                  style={{ width: '100%' }}
                   min='0'
                   max='1'
                   step='0.01'
-                  value={individualQualities[img.name] || globalQuality}
+                  value={individualQualities[img.name] || 1}
+                  onChange={(e) => handleIndividualQualityChange(img.name, parseFloat(e.target.value))}
+                />
+                <input
+                  type='number'
+                  className='form-control'
+                  min='0'
+                  max='1'
+                  step='0.01'
+                  value={individualQualities[img.name] || 1}
                   onChange={(e) => handleIndividualQualityChange(img.name, parseFloat(e.target.value))}
                 />
               </div>
@@ -296,34 +331,20 @@ const ImageUploader = () => {
           <h3>Resize Options</h3>
           <div className='form-group'>
             <label>Width:</label>
-            <input type='number' className='form-control' value={resizeWidth} onChange={(e) => setResizeWidth(parseInt(e.target.value))} />
-          </div>
-          <div className='form-group'>
-            <label>Height:</label>
-            <input type='number' className='form-control' value={resizeHeight} onChange={(e) => setResizeHeight(parseInt(e.target.value))} />
-          </div>
-        </div>
-        <div className='mt-4'>
-          <h3>Global Compression Quality</h3>
-          <div className='form-group'>
-            <label>Quality: {Math.round(globalQuality * 100)}%</label>
-            <input
-              type='range'
-              className='form-control-range'
-              min='0'
-              max='1'
-              step='0.01'
-              value={globalQuality}
-              onChange={(e) => handleGlobalQualityChange(parseFloat(e.target.value))}
-            />
             <input
               type='number'
               className='form-control'
-              min='0'
-              max='1'
-              step='0.01'
-              value={globalQuality}
-              onChange={(e) => handleGlobalQualityChange(parseFloat(e.target.value))}
+              value={resizeWidth || ''}
+              onChange={(e) => setResizeWidth(e.target.value ? parseInt(e.target.value) : null)}
+            />
+          </div>
+          <div className='form-group'>
+            <label>Height:</label>
+            <input
+              type='number'
+              className='form-control'
+              value={resizeHeight || ''}
+              onChange={(e) => setResizeHeight(e.target.value ? parseInt(e.target.value) : null)}
             />
           </div>
         </div>

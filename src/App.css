@@ -1,38 +1,178 @@
-body {
-  font-family: Arial, sans-serif;
+/*
+Theme Name: Listeo Child
+Theme URI: http://example.com/listeo-child/
+Description: Listeo Child Theme
+Author: Quang Minh - Dev
+Template: listeo-child
+Version: 1.0.0
+*/
+
+/* Import the parent theme's stylesheet */
+.listing-item-container {
+  background-color: rgb(255, 255, 255);
+  border: 1px solid rgb(236, 236, 236);
+  border-radius: 12px;
+}
+.panel-dropdown-content {
+  width: 280px !important;
+}
+.pricing-badge {
+  font-size: 20px;
+  color: red !important;
+  font-weight: bold !important;
+}
+.listing-tag a {
+  font-size: 20px;
 }
 
-.image-container {
-  flex-grow: 1;
-  padding-right: 20px;
+.like-button-notlogged,
+.like-button,
+.like-icon {
+  display: none !important;
 }
-
-.adjustment-controls {
-  min-width: 300px;
-  border-left: 1px solid #ccc;
+.claim-badge a {
+  display: none !important;
 }
-
-h1 {
-  text-align: center;
+.fs-container .fs-listings {
+  padding: 0 !important;
 }
-
-.container {
-  max-width: 1200px;
-  margin: 0 auto;
+/* css custom */
+.main-search-inner {
+  width: auto !important;
 }
-
-.image-container .row {
-  justify-content: center;
+.msps-container {
+  width: 100% !important;
 }
-
-.images {
+.swiper-container:not(.swiper-container-initialized) > .swiper-wrapper,
+.swiper:not(.swiper-initialized) > .swiper-wrapper {
+  overflow: visible !important;
+}
+.filter-tabs {
+  display: none !important;
+}
+.fs-container section.search {
+  padding: 20px 0 0 0 !important;
+}
+.panel-wrapper {
   display: flex;
-  justify-content: space-around;
-  margin-top: 20px;
+  flex-direction: column;
+}
+.panel-dropdown > a {
+  font-size: 18px !important;
+}
+.text_loc_map {
+  font-size: 26px;
+  font-weight: 600;
+  line-height: 36px;
+}
+#list-tim-phong {
+  margin-top: 75px;
+}
+#map-container {
+  margin-top: 80px;
+  height: 137px !important;
 }
 
-.image-container img {
-  max-width: 100%;
-  height: auto;
-  display: block;
+#map {
+  border-radius: 8px;
+  border: 1px solid 1px solid var(--gray-01, #c9cbcc);
+}
+.leaflet-control-attribution {
+  display: none !important;
+}
+@media (max-width: 1500px) {
+  .msps-container {
+    width: 100% !important;
+  }
+}
+
+/* Add your custom styles here */
+/* Default link color */
+#navigation.style-1 > ul > li.current-menu-ancestor > a,
+#navigation.style-1 > ul > li.current-menu-item > a {
+  color: #011f51;
+  transition: color 0.3s ease;
+}
+
+/* Change color to white on hover and active states */
+#navigation.style-1 > ul > li > a:hover,
+#navigation.style-1 > ul > li > a:active {
+  color: white !important;
+}
+
+/* Apply background color and border-radius on hover and active states */
+#navigation.style-1 > ul > li:hover,
+#navigation.style-1 > ul > li:active {
+  background-color: #011f51;
+  border-radius: 50px;
+}
+
+/* Building Features ccs  */
+.building-amenities-container {
+  display: flex;
+  flex-wrap: nowrap;
+  position: relative;
+  font-size: 18px;
+  white-space: nowrap;
+}
+
+.building-amenity-item {
+  flex: 1 1 33%;
+  padding: 10px 10px;
+  box-sizing: border-box;
+}
+
+.popup-trigger {
+  position: relative;
+  cursor: pointer;
+}
+
+.popup-content {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: -200px;
+  background: white;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+  padding: 10px;
+  z-index: 1000;
+  flex-wrap: wrap;
+  width: 300px;
+  height: 95px;
+  overflow-y: auto;
+}
+
+.popup-content .popup-amenity-item {
+  padding: 5px 10px;
+  box-sizing: border-box;
+}
+
+.popup-trigger:hover .popup-content {
+  display: flex;
+}
+
+@media only screen and (max-width: 48em) {
+  /*************** ADD MOBILE ONLY CSS HERE  ***************/
+  body.full-width-header .left-side {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    justify-content: center;
+  }
+  .building-amenity-item {
+    flex: 1 1 50%;
+  }
+  #list-tim-phong {
+    margin-top: 0;
+  }
+  #list-tim-phong .row {
+    display: flex;
+    flex-direction: column-reverse;
+  }
+  .building-amenities-container {
+    flex-wrap: wrap;
+  }
+  .pricing-badge {
+    font-size: 18px !important;
+  }
 }
